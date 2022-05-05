@@ -8,8 +8,8 @@ class L2Lob(Orderbook):
     def __init__(self):
         self.bids = {}
         self.asks = {}
-        self.highest_bid = {'price': 10e10, 'size': -1}
-        self.lowest_ask = {'price': -1, 'size': -1}
+        self.highest_bid = {'price': -1, 'size': -1}
+        self.lowest_ask = {'price': 10e10, 'size': -1}
 
     def handle_event(self, event: dict):
         self._check_fields(event)
@@ -49,18 +49,11 @@ class L2Lob(Orderbook):
     def _update_best(self, lob_action, side, size, price):
         if lob_action == INSERT:
             if side == BID:
-                if price < self.highest_bid['price']:
+                if price >= self.highest_bid['price']:
                     self.highest_bid = {'price': price, 'size': size}
             elif side == ASK:
-                if price > self.lowest_ask['price']:
+                if price <= self.lowest_ask['price']:
                     self.lowest_ask = {'price': price, 'size': size}
-        elif lob_action == UPDATE:
-            if side == BID:
-                if price == self.highest_bid['price']:
-                    self.highest_bid['size'] = size
-            elif side == ASK:
-                if price == self.lowest_ask['price']:
-                    self.lowest_ask['size'] = size
         elif lob_action == REMOVE:
             if side == BID:
                 if price == self.highest_bid['price']:
@@ -68,8 +61,15 @@ class L2Lob(Orderbook):
                     self.higest_bid = {'price': new_highest_bid, 'size': self.bids[new_highest_bid]}
             elif side == ASK:
                 if price == self.lowest_ask['price']:
-                    new_lowest_ask = max(self.asks.keys())
+                    new_lowest_ask = min(self.asks.keys())
                     self.lowest_ask = {'price': new_lowest_ask, 'size': self.asks[new_lowest_ask]}
+        elif lob_action == UPDATE:
+            if side == BID:
+                if price == self.highest_bid['price']:
+                    self.highest_bid['size'] = size
+            elif side == ASK:
+                if price == self.lowest_ask['price']:
+                    self.lowest_ask['size'] = size
 
     def snapshot(self):
         lob = {'bids': self.bids, 'asks': self.asks}
