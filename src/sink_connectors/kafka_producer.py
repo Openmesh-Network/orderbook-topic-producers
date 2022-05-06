@@ -15,5 +15,5 @@ class KafkaProducer():
     def produce(self, key, msg):
         if isinstance(msg, dict) or isinstance(msg, list):
             msg = json.dumps(msg).encode('utf-8')
-        self.producer.produce(self.topic, key=key, value=msg, on_delivery=self._ack)
+        self.producer.produce(self.topic, key=key, value=msg, on_delivery=self._ack, partition=0)
         self.producer.poll(0)
