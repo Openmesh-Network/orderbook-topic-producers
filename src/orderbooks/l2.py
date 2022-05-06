@@ -45,42 +45,38 @@ class L2Lob(Orderbook):
 
     def _update(self, book, size, price):
         if price not in book.keys():
+            self._insert(book, size, price) # Building LOB with no snapshot
             raise LobUpdateError("Updating when price level doesn't exist")
         book[price] = size
     
     def _update_best(self, lob_action, side, size, price):
         if len(self.bids) == 0 or len(self.asks) == 0:
             return
-        if lob_action == INSERT:
+        if lob_action in (INSERT, UPDATE):
             if side == BID:
                 if price >= self.highest_bid['price']:
                     self.highest_bid = {'price': price, 'size': size}
+                    self._correct_quotes(side)
             elif side == ASK:
                 if price <= self.lowest_ask['price']:
                     self.lowest_ask = {'price': price, 'size': size}
+                    self._correct_quotes(side)
         elif lob_action == REMOVE:
             if side == BID:
                 if price == self.highest_bid['price']:
                     new_highest_bid = max(self.bids.keys())
                     self.higest_bid = {'price': new_highest_bid, 'size': self.bids[new_highest_bid]}
-                    self._correct_quotes(side, size, price)
+                    self._correct_quotes(side)
             elif side == ASK:
                 if price == self.lowest_ask['price']:
                     new_lowest_ask = min(self.asks.keys())
                     self.lowest_ask = {'price': new_lowest_ask, 'size': self.asks[new_lowest_ask]}
-                    self._correct_quotes(side, size, price)
-        elif lob_action == UPDATE:
-            if side == BID:
-                if price == self.highest_bid['price']:
-                    self.highest_bid['size'] = size
-            elif side == ASK:
-                if price == self.lowest_ask['price']:
-                    self.lowest_ask['size'] = size
+                    self._correct_quotes(side)
     
-    def _correct_quotes(self, side, size, price):
+    def _correct_quotes(self, side):
         if side == BID:
             for ask_price in self.asks.keys():
-                if ask_price < price:
+                if ask_price <= self.highest_bid['price']:
                     del self.asks[ask_price]
             if len(self.asks) > 0:
                 new_lowest_ask = min(self.asks.keys())
@@ -89,11 +85,11 @@ class L2Lob(Orderbook):
                 self.lowest_ask = {'price': 10e10, 'size': -1}
         elif side == ASK:
             for bid_price in self.bids.keys():
-                if bid_price > price:
+                if bid_price >= self.lowest_ask['price']:
                     del self.bids[bid_price]
             if len(self.bids) > 0:
                 new_highest_bid = max(self.bids.keys())
-                self.higest_bid = {'price': new_highest_bid, 'size': self.bids[new_highest_bid]}
+                self.highest_bid = {'price': new_highest_bid, 'size': self.bids[new_highest_bid]}
             else:
                 self.highest_bid = {'price': -1, 'size': -1}
 
