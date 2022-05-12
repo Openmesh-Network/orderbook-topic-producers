@@ -20,7 +20,7 @@ def main():
     current_quote = None
     current_event_no = -1
     last_update_timestamp = "-1"
-    prev_event = None
+    event_metadata = {"send_timestamp": -1, "event_no": -1, "quote_no": -1}
     while True:
         message = consumer.consume()
         if not message is None:
@@ -28,12 +28,11 @@ def main():
             if 'quote_no' in lob_event.keys():
                 # Only produce if L1 quote has updated
                 quote = orderbook.book_top()
-                if current_event_no != lob_event['event_no'] and \
-                        current_quote != quote and \
-                        not prev_event is None:
-                    enrich_quote(quote, prev_event, last_update_timestamp)
-                    producer.produce(str(prev_event['event_no']), quote)
+                if current_event_no != lob_event['event_no'] and current_quote != quote:
+                    enrich_quote(quote, event_metadata, last_update_timestamp)
+                    producer.produce(str(event_metadata['event_no']), quote)
                     last_update_timestamp = str(int(time.time() * 10**3))
+                    event_metadata = lob_event
                     current_quote = orderbook.book_top()
 
                 try:
@@ -42,7 +41,6 @@ def main():
                     # No snapshot, so need to build orderbook asymptotically.
                     pass 
                 current_event_no = lob_event['event_no']
-                prev_event = lob_event
 
 if __name__ == "__main__":
     main()
