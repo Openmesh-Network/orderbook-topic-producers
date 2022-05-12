@@ -10,7 +10,7 @@ class KafkaProducer():
 
     def _ack(self, err, msg):
         if err is not None:
-            print("Failed to deliver message: %s: %s" % (msg.topic(), msg.partition()))
+            print("Failed to deliver message: %s: %s" % (msg.topic(), msg.partition()), flush=True)
 
     def produce(self, key, msg):
         if isinstance(msg, dict) or isinstance(msg, list):

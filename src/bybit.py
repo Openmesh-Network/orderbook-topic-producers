@@ -6,36 +6,43 @@ from orderbooks.orderbook import LobUpdateError
 from source_connectors.kafka_consumer import KafkaConsumer 
 from sink_connectors.kafka_producer import KafkaProducer
 
-def enrich_quote(quote, lob_event):
+def enrich_quote(quote, lob_event, last_update_timestamp):
+    quote['last_update_timestamp'] = last_update_timestamp
     quote['event_no'] = lob_event['event_no']
     quote['quote_no'] = lob_event['quote_no']
     quote['event_timestamp'] = lob_event['send_timestamp']
-    quote['receive_timestamp'] = lob_event['receive_timestamp']
     quote['send_timestamp'] = str(int(time.time() * 10**3))
-    return quote
 
-def run_lob():
+def main():
     consumer = KafkaConsumer('bybit-normalised')
     producer = KafkaProducer('bybit-L1')
     orderbook = L2Lob()
+    current_quote = None
     current_event_no = -1
+    last_update_timestamp = "-1"
+    prev_event = None
     while True:
         message = consumer.consume()
         if not message is None:
             lob_event = json.loads(message)
             if 'quote_no' in lob_event.keys():
-                # Only produce if event has been completely processed
-                if lob_event['event_no'] > current_event_no:
+                # Only produce if L1 quote has updated
+                quote = orderbook.book_top()
+                if current_event_no != lob_event['event_no'] and \
+                        (current_quote is None or current_quote != quote) and \
+                        not prev_event is None:
+                    enrich_quote(quote, prev_event, last_update_timestamp)
+                    producer.produce(str(prev_event['event_no']), quote)
+                    last_update_timestamp = str(int(time.time() * 10**3))
                     current_event_no = lob_event['event_no']
-                    quote = orderbook.book_top()
-                    quote = enrich_quote(quote, lob_event)
-                    producer.produce(str(lob_event['event_no']), quote)
+                    current_quote = orderbook.book_top()
 
                 try:
                     orderbook.handle_event(lob_event)
                 except LobUpdateError:
                     # No snapshot, so need to build orderbook asymptotically.
                     pass 
+                prev_event = lob_event
 
 if __name__ == "__main__":
-    run_lob()
+    main()
