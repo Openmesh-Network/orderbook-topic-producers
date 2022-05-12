@@ -29,12 +29,11 @@ def main():
                 # Only produce if L1 quote has updated
                 quote = orderbook.book_top()
                 if current_event_no != lob_event['event_no'] and \
-                        (current_quote is None or current_quote != quote) and \
+                        current_quote != quote and \
                         not prev_event is None:
                     enrich_quote(quote, prev_event, last_update_timestamp)
                     producer.produce(str(prev_event['event_no']), quote)
                     last_update_timestamp = str(int(time.time() * 10**3))
-                    current_event_no = lob_event['event_no']
                     current_quote = orderbook.book_top()
 
                 try:
@@ -42,6 +41,7 @@ def main():
                 except LobUpdateError:
                     # No snapshot, so need to build orderbook asymptotically.
                     pass 
+                current_event_no = lob_event['event_no']
                 prev_event = lob_event
 
 if __name__ == "__main__":
